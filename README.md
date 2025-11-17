@@ -16,11 +16,9 @@ The motivation for this simple log viewer is that Sever -> Server Log is often c
 - Add Logo for Webapp
 
 ## Bug reports
-
 [GitHub Issues](https://github.com/dirkwa/signalk-logviewer/issues)
 
 ## Contributing
-
 Contributions are welcome! Please:
 
 1. Fork the repository
