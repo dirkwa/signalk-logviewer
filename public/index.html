@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignalK Log Viewer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #252526;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3e3e42;
+            flex-shrink: 0;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        label {
+            color: #cccccc;
+            font-size: 14px;
+        }
+
+        input[type="number"], input[type="text"] {
+            background: #3c3c3c;
+            border: 1px solid #555555;
+            color: #d4d4d4;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 150px;
+        }
+
+        input[type="text"] {
+            width: 250px;
+        }
+
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #1177bb;
+        }
+
+        button:active {
+            background: #0d5789;
+        }
+
+        .info {
+            margin-top: 10px;
+            font-size: 12px;
+            color: #888888;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .split-view {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 0;
+        }
+
+        .log-panel {
+            flex: 1;
+            background: #1e1e1e;
+            border: 1px solid #3e3e42;
+            border-radius: 4px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 200px;
+        }
+
+        .panel-header {
+            background: #2d2d30;
+            padding: 8px 12px;
+            border-bottom: 1px solid #3e3e42;
+            font-size: 12px;
+            color: #cccccc;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .copy-btn {
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #555555;
+            padding: 4px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+            transition: all 0.2s;
+        }
+
+        .copy-btn:hover {
+            background: #4c4c4c;
+            border-color: #666666;
+        }
+
+        .copy-btn:active {
+            background: #2c2c2c;
+        }
+
+        .copy-btn.copied {
+            background: #0e639c;
+            border-color: #0e639c;
+        }
+
+        .panel-stats {
+            font-size: 11px;
+            color: #858585;
+        }
+
+        .log-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .log-line {
+            padding: 2px 0;
+            word-wrap: break-word;
+        }
+
+        .log-line:hover {
+            background: #2a2a2a;
+        }
+
+        .highlight {
+            background: #4a4a00;
+            color: #ffff00;
+        }
+
+        .error {
+            color: #f48771;
+        }
+
+        .warning {
+            color: #dcdcaa;
+        }
+
+        .info-msg {
+            color: #4ec9b0;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #888888;
+        }
+
+        .error-msg {
+            color: #f48771;
+            padding: 20px;
+            text-align: center;
+        }
+
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1e1e1e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #424242;
+            border-radius: 5px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4e4e4e;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="controls">
+            <div class="control-group">
+                <label for="lines">Lines:</label>
+                <input type="number" id="lines" value="2000" min="100" max="10000" step="100">
+            </div>
+            
+            <div class="control-group">
+                <label for="filter">Filter (grep):</label>
+                <input type="text" id="filter" placeholder="e.g. error, warning...">
+            </div>
+            
+            <button onclick="loadLogs()">Load Logs</button>
+            <button onclick="clearFilter()">Clear Filter</button>
+        </div>
+        
+        <div class="info">
+            <span id="logPath">Loading information...</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="split-view">
+            <div class="log-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>Current Logs</span>
+                        <span class="panel-stats" id="stats1">0 lines</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('logContent1', this)">Copy</button>
+                </div>
+                <div class="log-content" id="logContent1">
+                    <div class="loading">Click "Load Logs" to view logs</div>
+                </div>
+            </div>
+
+            <div class="log-panel">
+                <div class="panel-header">
+                    <div class="panel-title">
+                        <span>Previous Logs</span>
+                        <span class="panel-stats" id="stats2">0 lines</span>
+                    </div>
+                    <button class="copy-btn" onclick="copyToClipboard('logContent2', this)">Copy</button>
+                </div>
+                <div class="log-content" id="logContent2">
+                    <div class="loading">Previous logs will be shown here</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentFilter = '';
+        let previousLogs = [];
+
+        // Load logs on Enter key
+        document.getElementById('lines').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadLogs();
+        });
+
+        document.getElementById('filter').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') loadLogs();
+        });
+
+        async function loadLogs() {
+            const lines = document.getElementById('lines').value;
+            const filterText = document.getElementById('filter').value;
+            
+            currentFilter = filterText;
+
+            // Move current content to previous panel
+            const currentContent = document.getElementById('logContent1').innerHTML;
+            const currentStats = document.getElementById('stats1').textContent;
+            
+            if (currentContent && !currentContent.includes('loading') && !currentContent.includes('Klicke')) {
+                document.getElementById('logContent2').innerHTML = currentContent;
+                document.getElementById('stats2').textContent = currentStats;
+            }
+
+            // Show loading in current panel
+            document.getElementById('logContent1').innerHTML = '<div class="loading">Loading logs...</div>';
+
+            try {
+                const response = await fetch(`/plugins/signalk-logviewer/api/logs?lines=${lines}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    document.getElementById('logContent1').innerHTML = 
+                        `<div class="error-msg">Error: ${data.error}</div>`;
+                    return;
+                }
+
+                document.getElementById('logPath').textContent = 
+                    `Log path: ${data.path} | ${data.count} lines loaded`;
+
+                displayLogs(data.lines, 'logContent1', 'stats1');
+
+            } catch (error) {
+                document.getElementById('logContent1').innerHTML = 
+                    `<div class="error-msg">Error loading logs: ${error.message}</div>`;
+            }
+        }
+
+        function displayLogs(lines, contentId, statsId) {
+            let filteredLines = lines;
+            
+            if (currentFilter) {
+                const filterLower = currentFilter.toLowerCase();
+                filteredLines = lines.filter(line => 
+                    line.toLowerCase().includes(filterLower)
+                );
+            }
+
+            const content = document.getElementById(contentId);
+            content.innerHTML = '';
+
+            if (filteredLines.length === 0) {
+                content.innerHTML = '<div class="loading">No lines found</div>';
+                document.getElementById(statsId).textContent = '0 lines';
+                return;
+            }
+
+            filteredLines.forEach(line => {
+                const div = document.createElement('div');
+                div.className = 'log-line';
+                
+                // Apply syntax highlighting
+                if (line.toLowerCase().includes('error')) {
+                    div.classList.add('error');
+                } else if (line.toLowerCase().includes('warn')) {
+                    div.classList.add('warning');
+                } else if (line.toLowerCase().includes('info')) {
+                    div.classList.add('info-msg');
+                }
+
+                // Highlight filter matches
+                if (currentFilter) {
+                    const regex = new RegExp(`(${escapeRegex(currentFilter)})`, 'gi');
+                    div.innerHTML = line.replace(regex, '<span class="highlight">$1</span>');
+                } else {
+                    div.textContent = line;
+                }
+
+                content.appendChild(div);
+            });
+
+            // Update stats
+            const statsText = currentFilter 
+                ? `${filteredLines.length} of ${lines.length} lines (filtered)`
+                : `${filteredLines.length} lines`;
+            document.getElementById(statsId).textContent = statsText;
+
+            // Auto-scroll to bottom
+            content.scrollTop = content.scrollHeight;
+        }
+
+        function clearFilter() {
+            document.getElementById('filter').value = '';
+            currentFilter = '';
+            loadLogs();
+        }
+
+        function escapeRegex(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Load initial logs
+        window.addEventListener('load', () => {
+            loadLogs();
+        });
+    </script>
+</body>
+</html>
