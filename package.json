@@ -1,17 +1,21 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "SignalK Plugin to view and filter server logs",
   "main": "index.js",
   "keywords": [
     "signalk-node-server-plugin",
-    "signalk-webapp"
+    "signalk-webapp",
+    "signalk-category-utility"
   ],
   "author": "Dirk Wahrheit",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/signalk-logviewer.git"
+    "url": "https://github.com/dirkwa/signalk-logviewer.git"
+  },
+  "bugs": {
+    "url": "https://github.com/dirkwa/log-viewer/issues"
   },
   "files": [
     "index.js",
