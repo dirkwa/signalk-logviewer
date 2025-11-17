@@ -12,10 +12,13 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dirkwa/signalk-logviewer.git"
+    "url": "git+https://github.com/dirkwa/signalk-logviewer.git"
   },
   "bugs": {
     "url": "https://github.com/dirkwa/log-viewer/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   },
   "files": [
     "index.js",
@@ -33,6 +36,9 @@
       "description": "View and filter SignalK server logs",
       "location": "/plugins/signalk-logviewer/"
     }
+  },
+  "scripts": {
+    "test": "echo \"No tests specified\" && exit 0"
   },
   "dependencies": {}
 }
