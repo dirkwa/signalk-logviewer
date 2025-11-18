@@ -5,8 +5,6 @@ const { execSync } = require('child_process');
 module.exports = function(app) {
   let plugin = {};
   let unsubscribes = [];
-  let logBuffer = [];
-  const MAX_BUFFER_SIZE = 10000;
 
   plugin.id = 'signalk-logviewer';
   plugin.name = 'Log Viewer';
@@ -27,6 +25,101 @@ module.exports = function(app) {
 
   plugin.start = function(options) {
     app.debug('Plugin started');
+    
+    // Function to convert TAI64N timestamp to readable format
+    function convertTAI64N(tai64nStr) {
+      try {
+        // Remove @ prefix
+        const hex = tai64nStr.substring(1);
+        
+        // Parse the hex string (first 16 chars are seconds since epoch + TAI offset)
+        const hexSeconds = hex.substring(0, 16);
+        const seconds = parseInt(hexSeconds, 16);
+        
+        // TAI64N starts at 1970-01-01 00:00:10 TAI (10 seconds offset)
+        // Convert to Unix timestamp (subtract the TAI offset: 2^62 + 10)
+        const TAI_OFFSET = Math.pow(2, 62) + 10;
+        const unixSeconds = seconds - TAI_OFFSET;
+        
+        // Create date object
+        const date = new Date(unixSeconds * 1000);
+        return date.toISOString();
+      } catch (err) {
+        return tai64nStr; // Return original if conversion fails
+      }
+    }
+    
+    // Function to process log line and convert TAI64N if present
+    function processLogLine(line) {
+      // Check if line starts with @4 (TAI64N format)
+      if (line.startsWith('@4')) {
+        const parts = line.split(' ');
+        if (parts.length > 0) {
+          const timestamp = convertTAI64N(parts[0]);
+          return timestamp + ' ' + parts.slice(1).join(' ');
+        }
+      }
+      return line;
+    }
+    
+    // Try to get logs from Victron Cerbo (Venus OS)
+    function getLogsFromVictronCerbo(numLines) {
+      try {
+        const venusLogPath = '/data/log/signalk-server/current';
+        
+        if (fs.existsSync(venusLogPath)) {
+          app.debug('Found Victron Cerbo log at:', venusLogPath);
+          
+          // Check if file is readable
+          try {
+            fs.accessSync(venusLogPath, fs.constants.R_OK);
+          } catch (err) {
+            app.error('Cannot read Victron log file:', err.message);
+            return null;
+          }
+          
+          // Read file and get last N lines
+          const stats = fs.statSync(venusLogPath);
+          const fileSize = stats.size;
+          app.debug('Victron log file size:', fileSize, 'bytes');
+          
+          // Read last chunk of file (should be enough for numLines)
+          const chunkSize = Math.min(500 * numLines, fileSize); // ~500 bytes per line estimate
+          const buffer = Buffer.alloc(chunkSize);
+          const fd = fs.openSync(venusLogPath, 'r');
+          const startPos = Math.max(0, fileSize - chunkSize);
+          
+          app.debug('Reading', chunkSize, 'bytes from position', startPos);
+          
+          fs.readSync(fd, buffer, 0, chunkSize, startPos);
+          fs.closeSync(fd);
+          
+          const data = buffer.toString('utf8');
+          const allLines = data.split('\n').filter(line => line.trim());
+          const lastLines = allLines.slice(-numLines);
+          
+          app.debug('Found', allLines.length, 'total lines, returning last', lastLines.length);
+          
+          // Process TAI64N timestamps
+          const processedLines = lastLines.map(processLogLine);
+          
+          app.debug('Successfully read', processedLines.length, 'lines from Victron Cerbo');
+          
+          return {
+            lines: processedLines,
+            path: venusLogPath,
+            source: 'victron-cerbo'
+          };
+        }
+        
+        app.debug('Victron Cerbo log path does not exist:', venusLogPath);
+        return null;
+      } catch (err) {
+        app.error('Error reading Victron Cerbo log:', err.message);
+        app.error('Stack:', err.stack);
+        return null;
+      }
+    }
     
     // Try to get logs from journalctl if running as systemd service
     function getLogsFromJournalctl(numLines) {
@@ -79,13 +172,30 @@ module.exports = function(app) {
       const maxLines = Math.min(numLines, 10000);
       
       try {
-        // Try journalctl first (most common for systemd installations)
+        let result = null;
+        
+        // Try Victron Cerbo first (Venus OS)
+        app.debug('Checking for Victron Cerbo logs...');
+        result = getLogsFromVictronCerbo(maxLines);
+        if (result) {
+          app.debug('Returning Victron Cerbo logs');
+          return res.json({
+            lines: result.lines,
+            path: result.path,
+            count: result.lines.length,
+            source: result.source
+          });
+        }
+        
+        // Try journalctl (most common for systemd installations)
+        app.debug('Trying journalctl...');
         let lines = getLogsFromJournalctl(maxLines);
         let source = 'journalctl';
         let logPath = 'journalctl -u signalk';
         
         // If journalctl fails, try log files
         if (!lines) {
+          app.debug('Trying log files...');
           const fileResult = getLogsFromFile(maxLines);
           if (fileResult) {
             lines = fileResult.lines;
@@ -96,9 +206,10 @@ module.exports = function(app) {
         
         // If still no logs, return error
         if (!lines || lines.length === 0) {
+          app.error('Could not find logs anywhere');
           return res.status(404).json({ 
             error: 'Could not find logs',
-            message: 'Tried journalctl and common log file locations',
+            message: 'Tried Victron Cerbo, journalctl and common log file locations',
             suggestion: 'Check that SignalK is logging and accessible'
           });
         }
