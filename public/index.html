@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -278,9 +278,7 @@
 
     <script>
         let currentFilter = '';
-        let previousLogs = [];
 
-        // Load logs on Enter key
         document.getElementById('lines').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadLogs();
         });
@@ -295,16 +293,14 @@
             
             currentFilter = filterText;
 
-            // Move current content to previous panel
             const currentContent = document.getElementById('logContent1').innerHTML;
             const currentStats = document.getElementById('stats1').textContent;
             
-            if (currentContent && !currentContent.includes('loading') && !currentContent.includes('Klicke')) {
+            if (currentContent && !currentContent.includes('loading') && !currentContent.includes('Click')) {
                 document.getElementById('logContent2').innerHTML = currentContent;
                 document.getElementById('stats2').textContent = currentStats;
             }
 
-            // Show loading in current panel
             document.getElementById('logContent1').innerHTML = '<div class="loading">Loading logs...</div>';
 
             try {
@@ -351,7 +347,6 @@
                 const div = document.createElement('div');
                 div.className = 'log-line';
                 
-                // Apply syntax highlighting
                 if (line.toLowerCase().includes('error')) {
                     div.classList.add('error');
                 } else if (line.toLowerCase().includes('warn')) {
@@ -360,7 +355,6 @@
                     div.classList.add('info-msg');
                 }
 
-                // Highlight filter matches
                 if (currentFilter) {
                     const regex = new RegExp(`(${escapeRegex(currentFilter)})`, 'gi');
                     div.innerHTML = line.replace(regex, '<span class="highlight">$1</span>');
@@ -371,13 +365,11 @@
                 content.appendChild(div);
             });
 
-            // Update stats
             const statsText = currentFilter 
                 ? `${filteredLines.length} of ${lines.length} lines (filtered)`
                 : `${filteredLines.length} lines`;
             document.getElementById(statsId).textContent = statsText;
 
-            // Auto-scroll to bottom
             content.scrollTop = content.scrollHeight;
         }
 
@@ -391,7 +383,79 @@
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
-        // Load initial logs
+        async function copyToClipboard(contentId, button) {
+            console.log('Copy button clicked for:', contentId);
+            const content = document.getElementById(contentId);
+            
+            let text = '';
+            const logLines = content.querySelectorAll('.log-line');
+            console.log('Found', logLines.length, 'log lines');
+            
+            if (logLines.length > 0) {
+                logLines.forEach(line => {
+                    text += line.textContent + '\n';
+                });
+            } else {
+                text = content.textContent;
+            }
+            
+            console.log('Text length:', text.length);
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                console.log('Using modern clipboard API');
+                try {
+                    await navigator.clipboard.writeText(text);
+                    console.log('Copy successful!');
+                    showCopySuccess(button);
+                    return;
+                } catch (err) {
+                    console.error('Modern clipboard failed:', err);
+                }
+            }
+            
+            console.log('Using fallback method');
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.top = '0';
+                textarea.style.left = '0';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                
+                const successful = document.execCommand('copy');
+                console.log('execCommand result:', successful);
+                document.body.removeChild(textarea);
+                
+                if (successful) {
+                    showCopySuccess(button);
+                } else {
+                    throw new Error('execCommand failed');
+                }
+            } catch (err) {
+                console.error('Fallback failed:', err);
+                button.textContent = 'Failed';
+                button.style.background = '#d32f2f';
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.style.background = '';
+                }, 2000);
+            }
+        }
+        
+        function showCopySuccess(button) {
+            const originalText = button.textContent;
+            button.textContent = 'Copied!';
+            button.classList.add('copied');
+            
+            setTimeout(() => {
+                button.textContent = originalText;
+                button.classList.remove('copied');
+            }, 2000);
+        }
+
         window.addEventListener('load', () => {
             loadLogs();
         });

@@ -9,9 +9,9 @@ The motivation for this simple log viewer is that Sever -> Server Log is often c
 ## Features
 - Get up to 10000 last lines from log, 2000 lines by default
 - Filter log 
+- Copy to clipboard
 
 ## Roadmap
-- Copy to clipboard
 - Support Victron GX
 - Add Logo for Webapp
 
