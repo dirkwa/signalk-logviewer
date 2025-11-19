@@ -19,20 +19,37 @@ The motivation for this simple Webapp log viewer is that Sever -> Server Log is 
 ## Victron Venus OS (Cerbo GX / Octo GX / Venus GX)
 The log directory `/data/log/signalk-server` is owned by root:root, but the plugin runs as signalk:signalk, so it needs permission to access the log files.
 
-To make this plugin work on Venus OS devices:
-
+### Quick Fix (temporary - resets on reboot)
 1. SSH into your device as root
 2. Execute:
 ```bash
 chown -R signalk:signalk /data/log/signalk-server
 ```
 
-**Note:** This change is not persistent and must be reapplied after every reboot. The plugin automatically detects Venus OS devices (Cerbo GX, Octo GX, Venus GX) and displays an error message with these instructions if logs cannot be accessed.
+### Persistent Solution (survives reboot)
+1. SSH into your device as root
+2. Create `/data/rc.local` file:
+```bash
+cat > /data/rc.local << 'EOF'
+#!/bin/sh
+# Fix SignalK log permissions
+chown -R signalk:signalk /data/log/signalk-server
+EOF
+```
+3. Make it executable:
+```bash
+chmod +x /data/rc.local
+```
+4. Reboot your device:
+```bash
+reboot
+```
+
+**Note:** The plugin automatically detects Venus OS devices (Cerbo GX, Octo GX, Venus GX) and displays an error message with these instructions if logs cannot be accessed.
 
 ## Roadmap
 - Support signalk-server inside docker
 - Add Logo for Webapp
-- Make Cerbo permission change persistent across reboots
 
 ## Bug reports
 [GitHub Issues](https://github.com/dirkwa/signalk-logviewer/issues)
