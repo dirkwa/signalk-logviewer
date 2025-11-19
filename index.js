@@ -49,74 +49,72 @@ module.exports = function(app) {
       }
     }
     
-    // Function to process log line and convert TAI64N if present
+    // Function to extract original timestamp and message
     function processLogLine(line) {
       // Check if line starts with @4 (TAI64N format)
       if (line.startsWith('@4')) {
         const parts = line.split(' ');
         if (parts.length > 0) {
-          const timestamp = convertTAI64N(parts[0]);
-          return timestamp + ' ' + parts.slice(1).join(' ');
+          return {
+            original: line,
+            timestamp: parts[0],
+            message: parts.slice(1).join(' ')
+          };
         }
       }
-      return line;
+      return {
+        original: line,
+        timestamp: null,
+        message: line
+      };
     }
     
     // Try to get logs from Victron Cerbo (Venus OS)
     function getLogsFromVictronCerbo(numLines) {
+      const venusLogPath = '/data/log/signalk-server/current';
+
       try {
-        const venusLogPath = '/data/log/signalk-server/current';
-        
-        if (fs.existsSync(venusLogPath)) {
-          app.debug('Found Victron Cerbo log at:', venusLogPath);
-          
-          // Check if file is readable
-          try {
-            fs.accessSync(venusLogPath, fs.constants.R_OK);
-          } catch (err) {
-            app.error('Cannot read Victron log file:', err.message);
-            return null;
-          }
-          
-          // Read file and get last N lines
-          const stats = fs.statSync(venusLogPath);
-          const fileSize = stats.size;
-          app.debug('Victron log file size:', fileSize, 'bytes');
-          
-          // Read last chunk of file (should be enough for numLines)
-          const chunkSize = Math.min(500 * numLines, fileSize); // ~500 bytes per line estimate
-          const buffer = Buffer.alloc(chunkSize);
-          const fd = fs.openSync(venusLogPath, 'r');
-          const startPos = Math.max(0, fileSize - chunkSize);
-          
-          app.debug('Reading', chunkSize, 'bytes from position', startPos);
-          
-          fs.readSync(fd, buffer, 0, chunkSize, startPos);
-          fs.closeSync(fd);
-          
-          const data = buffer.toString('utf8');
-          const allLines = data.split('\n').filter(line => line.trim());
-          const lastLines = allLines.slice(-numLines);
-          
-          app.debug('Found', allLines.length, 'total lines, returning last', lastLines.length);
-          
-          // Process TAI64N timestamps
-          const processedLines = lastLines.map(processLogLine);
-          
-          app.debug('Successfully read', processedLines.length, 'lines from Victron Cerbo');
-          
-          return {
-            lines: processedLines,
-            path: venusLogPath,
-            source: 'victron-cerbo'
-          };
-        }
-        
-        app.debug('Victron Cerbo log path does not exist:', venusLogPath);
-        return null;
+        app.debug('Attempting to read Victron Cerbo log at:', venusLogPath);
+
+        // Try to check file accessibility
+        fs.accessSync(venusLogPath, fs.constants.R_OK);
+        app.debug('Found Victron Cerbo log at:', venusLogPath);
+
+        // Read file and get last N lines
+        const stats = fs.statSync(venusLogPath);
+        const fileSize = stats.size;
+        app.debug('Victron log file size:', fileSize, 'bytes');
+
+        // Read last chunk of file (should be enough for numLines)
+        const chunkSize = Math.min(500 * numLines, fileSize); // ~500 bytes per line estimate
+        const buffer = Buffer.alloc(chunkSize);
+        const fd = fs.openSync(venusLogPath, 'r');
+        const startPos = Math.max(0, fileSize - chunkSize);
+
+        app.debug('Reading', chunkSize, 'bytes from position', startPos);
+
+        fs.readSync(fd, buffer, 0, chunkSize, startPos);
+        fs.closeSync(fd);
+
+        const data = buffer.toString('utf8');
+        const allLines = data.split('\n').filter(line => line.trim());
+        const lastLines = allLines.slice(-numLines);
+
+        app.debug('Found', allLines.length, 'total lines, returning last', lastLines.length);
+
+        // Process TAI64N timestamps - keep structured data
+        const processedLines = lastLines.map(processLogLine);
+
+        app.debug('Successfully read', processedLines.length, 'lines from Victron Cerbo');
+
+        return {
+          lines: processedLines,
+          path: venusLogPath,
+          source: 'victron-cerbo',
+          hasTAI64N: true
+        };
       } catch (err) {
-        app.error('Error reading Victron Cerbo log:', err.message);
-        app.error('Stack:', err.stack);
+        app.debug('Victron Cerbo log not accessible:', err.message);
         return null;
       }
     }
@@ -124,11 +122,16 @@ module.exports = function(app) {
     // Try to get logs from journalctl if running as systemd service
     function getLogsFromJournalctl(numLines) {
       try {
-        const output = execSync(`journalctl -u signalk -n ${numLines} --no-pager --output=cat`, { 
+        const output = execSync(`journalctl -u signalk -n ${numLines} --no-pager --output=cat`, {
           encoding: 'utf8',
           maxBuffer: 10 * 1024 * 1024 // 10MB buffer
         });
-        return output.trim().split('\n');
+        const lines = output.trim().split('\n');
+        return lines.map(line => ({
+          original: line,
+          timestamp: null,
+          message: line
+        }));
       } catch (err) {
         app.debug('journalctl not available:', err.message);
         return null;
@@ -151,9 +154,13 @@ module.exports = function(app) {
           if (fs.existsSync(logPath)) {
             app.debug('Found log file at:', logPath);
             const data = fs.readFileSync(logPath, 'utf8');
-            const lines = data.trim().split('\n');
+            const lines = data.trim().split('\n').slice(-numLines);
             return {
-              lines: lines.slice(-numLines),
+              lines: lines.map(line => ({
+                original: line,
+                timestamp: null,
+                message: line
+              })),
               path: logPath
             };
           }
@@ -166,25 +173,97 @@ module.exports = function(app) {
       }
     }
     
+    // Check if we're running on Victron Venus OS (Cerbo/Octo/etc)
+    function isCerboSystem() {
+      try {
+        // Method 1: Check for Venus OS device hostnames + /data directory
+        const hostname = require('os').hostname();
+        app.debug('Hostname:', hostname);
+
+        // Venus OS devices have specific hostnames:
+        // - einstein = Cerbo GX
+        // - beaglebone = Octo GX
+        // - venus = Venus GX
+        const venusHostnames = ['einstein', 'beaglebone', 'venus'];
+
+        if (venusHostnames.includes(hostname) && fs.existsSync('/data')) {
+          app.debug(`Detected Venus OS device (hostname: ${hostname})`);
+          return true;
+        }
+
+        // Method 2: Check /etc/venus-release (if it exists on Venus OS)
+        if (fs.existsSync('/etc/venus-release')) {
+          app.debug('Detected Venus OS (/etc/venus-release exists)');
+          return true;
+        }
+
+        // Method 3: Check /etc/version (Venus OS has this file)
+        if (fs.existsSync('/etc/version') && fs.existsSync('/data')) {
+          try {
+            const version = fs.readFileSync('/etc/version', 'utf8').trim();
+            // Venus OS version format is typically a date like "20250915120900"
+            if (version.length === 14 && /^\d+$/.test(version)) {
+              app.debug('Detected Venus OS (/etc/version format + /data directory)');
+              return true;
+            }
+          } catch (err) {
+            app.debug('Could not read /etc/version:', err.message);
+          }
+        }
+
+        // Method 4: Check /etc/os-release for Venus OS identifier
+        if (fs.existsSync('/etc/os-release')) {
+          try {
+            const osRelease = fs.readFileSync('/etc/os-release', 'utf8');
+            if (osRelease.includes('venus') || osRelease.includes('Venus')) {
+              app.debug('Detected Venus OS (from /etc/os-release)');
+              return true;
+            }
+          } catch (err) {
+            app.debug('Could not read /etc/os-release:', err.message);
+          }
+        }
+
+        app.debug('Not a Cerbo/Venus OS system');
+        return false;
+      } catch (err) {
+        app.error('Error detecting Cerbo system:', err.message);
+        return false;
+      }
+    }
+
     // Register API endpoint for logs
     app.get('/plugins/signalk-logviewer/api/logs', (req, res) => {
       const numLines = parseInt(req.query.lines) || options.maxLines || 2000;
       const maxLines = Math.min(numLines, 10000);
-      
+      let isCerbo = isCerboSystem();
+
       try {
         let result = null;
-        
+
         // Try Victron Cerbo first (Venus OS)
         app.debug('Checking for Victron Cerbo logs...');
         result = getLogsFromVictronCerbo(maxLines);
         if (result) {
           app.debug('Returning Victron Cerbo logs');
+          // If we successfully read from Cerbo path, it's definitely a Cerbo
+          isCerbo = true;
           return res.json({
             lines: result.lines,
             path: result.path,
             count: result.lines.length,
-            source: result.source
+            source: result.source,
+            hasTAI64N: result.hasTAI64N,
+            isCerbo: true
           });
+        }
+
+        // If getLogsFromVictronCerbo was attempted but failed, and we haven't detected Cerbo yet,
+        // it might still be a Cerbo with permission issues. Check if the Cerbo log path exists
+        // but just couldn't be read
+        if (!isCerbo && fs.existsSync('/data/log/signalk-server')) {
+          app.debug('Detected Cerbo system (log directory exists but not readable)');
+          isCerbo = true;
         }
         
         // Try journalctl (most common for systemd installations)
@@ -207,10 +286,18 @@ module.exports = function(app) {
         // If still no logs, return error
         if (!lines || lines.length === 0) {
           app.error('Could not find logs anywhere');
-          return res.status(404).json({ 
-            error: 'Could not find logs',
+          const errorMessage = isCerbo
+            ? 'Victron Venus OS users (Cerbo GX / Octo GX / Venus GX)'
+            : 'Could not find logs';
+          const suggestion = isCerbo
+            ? 'SSH as root to your device and execute:\nchown -R signalk:signalk /data/log/signalk-server'
+            : 'Check that SignalK is logging and accessible';
+
+          return res.status(404).json({
+            error: errorMessage,
             message: 'Tried Victron Cerbo, journalctl and common log file locations',
-            suggestion: 'Check that SignalK is logging and accessible'
+            suggestion: suggestion,
+            isCerbo: isCerbo
           });
         }
         
@@ -218,7 +305,9 @@ module.exports = function(app) {
           lines: lines,
           path: logPath,
           count: lines.length,
-          source: source
+          source: source,
+          hasTAI64N: false,
+          isCerbo: isCerbo
         });
         
       } catch (error) {

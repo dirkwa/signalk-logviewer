@@ -84,6 +84,25 @@
             color: #888888;
         }
 
+        select {
+            background: #3c3c3c;
+            border: 1px solid #555555;
+            color: #d4d4d4;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        select:hover {
+            border-color: #666666;
+        }
+
+        select:focus {
+            outline: none;
+            border-color: #0e639c;
+        }
+
         .container {
             flex: 1;
             display: flex;
@@ -236,7 +255,16 @@
                 <label for="filter">Filter (grep):</label>
                 <input type="text" id="filter" placeholder="e.g. error, warning...">
             </div>
-            
+
+            <div class="control-group">
+                <label for="timestampFormat">Timestamp:</label>
+                <select id="timestampFormat" onchange="updateTimestampDisplay()">
+                    <option value="original">Original</option>
+                    <option value="iso8601">ISO 8601</option>
+                    <option value="locale">Locale</option>
+                </select>
+            </div>
+
             <button onclick="loadLogs()">Load Logs</button>
             <button onclick="clearFilter()">Clear Filter</button>
         </div>
@@ -278,6 +306,8 @@
 
     <script>
         let currentFilter = '';
+        let currentLogData = null;
+        let timestampFormat = 'original';
 
         document.getElementById('lines').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadLogs();
@@ -286,6 +316,69 @@
         document.getElementById('filter').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadLogs();
         });
+
+        // TAI64N timestamp conversion function
+        function convertTAI64N(tai64nStr) {
+            try {
+                // Remove @ prefix
+                const hex = tai64nStr.substring(1);
+
+                // Parse the hex string (first 16 chars are seconds since epoch + TAI offset)
+                const hexSeconds = hex.substring(0, 16);
+                const seconds = parseInt(hexSeconds, 16);
+
+                // TAI64N starts at 1970-01-01 00:00:10 TAI (10 seconds offset)
+                // Convert to Unix timestamp (subtract the TAI offset: 2^62 + 10)
+                const TAI_OFFSET = Math.pow(2, 62) + 10;
+                const unixSeconds = seconds - TAI_OFFSET;
+
+                // Create date object
+                const date = new Date(unixSeconds * 1000);
+                return date;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function formatTimestamp(logLine) {
+            if (!logLine.timestamp) {
+                // No timestamp to format
+                return logLine.original;
+            }
+
+            const format = document.getElementById('timestampFormat').value;
+
+            if (format === 'original') {
+                return logLine.original;
+            }
+
+            const date = convertTAI64N(logLine.timestamp);
+            if (!date) {
+                return logLine.original;
+            }
+
+            let formattedTimestamp;
+            if (format === 'iso8601') {
+                formattedTimestamp = date.toISOString();
+            } else if (format === 'locale') {
+                formattedTimestamp = date.toLocaleString();
+            }
+
+            return formattedTimestamp + ' ' + logLine.message;
+        }
+
+        function updateTimestampDisplay() {
+            if (currentLogData) {
+                displayLogs(currentLogData.lines, 'logContent1', 'stats1');
+
+                // Also update previous logs if they exist
+                const prevContent = document.getElementById('logContent2');
+                if (prevContent.dataset.lines) {
+                    const prevLines = JSON.parse(prevContent.dataset.lines);
+                    displayLogs(prevLines, 'logContent2', 'stats2');
+                }
+            }
+        }
 
         async function loadLogs() {
             const lines = document.getElementById('lines').value;
@@ -308,12 +401,27 @@
                 const data = await response.json();
 
                 if (data.error) {
-                    document.getElementById('logContent1').innerHTML = 
-                        `<div class="error-msg">Error: ${data.error}</div>`;
+                    let errorHtml = `<div class="error-msg"><strong>${data.error}</strong>`;
+                    if (data.suggestion) {
+                        // Split suggestion by newlines and format each line
+                        const suggestionLines = data.suggestion.split('\n');
+                        errorHtml += '<ol style="margin-top: 10px; padding-left: 20px;">';
+                        suggestionLines.forEach(line => {
+                            if (line.trim()) {
+                                errorHtml += `<li>${line}</li>`;
+                            }
+                        });
+                        errorHtml += '</ol>';
+                    }
+                    errorHtml += `</div>`;
+                    document.getElementById('logContent1').innerHTML = errorHtml;
                     return;
                 }
 
-                document.getElementById('logPath').textContent = 
+                // Store current log data
+                currentLogData = data;
+
+                document.getElementById('logPath').textContent =
                     `Log path: ${data.path} | ${data.count} lines loaded`;
 
                 displayLogs(data.lines, 'logContent1', 'stats1');
@@ -325,16 +433,20 @@
         }
 
         function displayLogs(lines, contentId, statsId) {
+            // Store lines data for later timestamp format changes
+            const content = document.getElementById(contentId);
+            content.dataset.lines = JSON.stringify(lines);
+
             let filteredLines = lines;
-            
+
             if (currentFilter) {
                 const filterLower = currentFilter.toLowerCase();
-                filteredLines = lines.filter(line => 
-                    line.toLowerCase().includes(filterLower)
-                );
+                filteredLines = lines.filter(line => {
+                    const formatted = formatTimestamp(line);
+                    return formatted.toLowerCase().includes(filterLower);
+                });
             }
 
-            const content = document.getElementById(contentId);
             content.innerHTML = '';
 
             if (filteredLines.length === 0) {
@@ -343,29 +455,32 @@
                 return;
             }
 
-            filteredLines.forEach(line => {
+            filteredLines.forEach(logLine => {
                 const div = document.createElement('div');
                 div.className = 'log-line';
-                
-                if (line.toLowerCase().includes('error')) {
+
+                // Format the timestamp based on current selection
+                const formattedLine = formatTimestamp(logLine);
+
+                if (formattedLine.toLowerCase().includes('error')) {
                     div.classList.add('error');
-                } else if (line.toLowerCase().includes('warn')) {
+                } else if (formattedLine.toLowerCase().includes('warn')) {
                     div.classList.add('warning');
-                } else if (line.toLowerCase().includes('info')) {
+                } else if (formattedLine.toLowerCase().includes('info')) {
                     div.classList.add('info-msg');
                 }
 
                 if (currentFilter) {
                     const regex = new RegExp(`(${escapeRegex(currentFilter)})`, 'gi');
-                    div.innerHTML = line.replace(regex, '<span class="highlight">$1</span>');
+                    div.innerHTML = formattedLine.replace(regex, '<span class="highlight">$1</span>');
                 } else {
-                    div.textContent = line;
+                    div.textContent = formattedLine;
                 }
 
                 content.appendChild(div);
             });
 
-            const statsText = currentFilter 
+            const statsText = currentFilter
                 ? `${filteredLines.length} of ${lines.length} lines (filtered)`
                 : `${filteredLines.length} lines`;
             document.getElementById(statsId).textContent = statsText;
