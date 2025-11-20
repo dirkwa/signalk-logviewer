@@ -233,7 +233,7 @@ module.exports = function(app) {
     }
 
     // Register API endpoint for logs
-    app.get('/plugins/signalk-logviewer/api/logs', (req, res) => {
+    app.get('/signalk-logviewer/api/logs', (req, res) => {
       const numLines = parseInt(req.query.lines) || options.maxLines || 2000;
       const maxLines = Math.min(numLines, 10000);
       let isCerbo = isCerboSystem();

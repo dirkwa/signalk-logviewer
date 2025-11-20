@@ -397,7 +397,7 @@
             document.getElementById('logContent1').innerHTML = '<div class="loading">Loading logs...</div>';
 
             try {
-                const response = await fetch(`/plugins/signalk-logviewer/api/logs?lines=${lines}`);
+                const response = await fetch(`api/logs?lines=${lines}`);
                 const data = await response.json();
 
                 if (data.error) {
