@@ -44,6 +44,21 @@ chmod +x /data/rc.local
 ```bash
 reboot
 ```
+### Increase LOG size, default is only 25kb
+1. SSH into your device as root
+2. Edit `/opt/victronenergy/service/signalk-server/log/run` file:
+```bash
+cat > /opt/victronenergy/service/signalk-server/log/run << 'EOF'
+#!/bin/sh
+exec 2>&1
+exec multilog t s2500000 n4 /var/log/signalk-server
+EOF
+```
+3. Reboot your device:
+```bash
+reboot
+```
+
 
 **Note:** The plugin automatically detects Venus OS devices (Cerbo GX, Octo GX, Venus GX) and displays an error message with these instructions if logs cannot be accessed.
 
