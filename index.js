@@ -290,7 +290,7 @@ module.exports = function(app) {
             ? 'Victron Venus OS users (Cerbo GX / Octo GX / Venus GX)'
             : 'Could not find logs';
           const suggestion = isCerbo
-            ? 'SSH as root to your device and execute:\nchown -R signalk:signalk /data/log/signalk-server\n\nFor persistent solution (survives reboot):\nCreate /data/rc.local with content: #!/bin/sh\\nchown -R signalk:signalk /data/log/signalk-server\nThen run: chmod +x /data/rc.local\nReboot to apply'
+            ? 'SSH as root to your device and execute:\nchown -R signalk:signalk /data/log/signalk-server\n\nFor persistent solution (survives reboot):\n\nSee README.md of this plugin.'
             : 'Check that SignalK is logging and accessible';
 
           return res.status(404).json({
