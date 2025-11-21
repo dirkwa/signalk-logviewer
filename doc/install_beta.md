@@ -15,3 +15,5 @@ chown -R signalk:signalk /data/conf/signalk/*
 ```
  svc -t /service/signalk-server
 ```
+
+
