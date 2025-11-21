@@ -46,7 +46,11 @@ reboot
 ```
 ### Increase LOG size, default is only 25kb
 1. SSH into your device as root
-2. Edit `/opt/victronenergy/service/signalk-server/log/run` file:
+2. Backup original file 
+```bash
+cp /opt/victronenergy/service/signalk-server/log/run /data/run.backup
+```
+3. Edit `/opt/victronenergy/service/signalk-server/log/run` file:
 ```bash
 cat > /opt/victronenergy/service/signalk-server/log/run << 'EOF'
 #!/bin/sh
@@ -54,16 +58,15 @@ exec 2>&1
 exec multilog t s2500000 n4 /var/log/signalk-server
 EOF
 ```
-3. Reboot your device:
+4. Reboot your device:
 ```bash
 reboot
 ```
 
-
 **Note:** The plugin automatically detects Venus OS devices (Cerbo GX, Octo GX, Venus GX) and displays an error message with these instructions if logs cannot be accessed.
 
-## Roadmap
-- Add Logo for Webapp
+## Changelog
+[Changelog at Github master](https://github.com/dirkwa/signalk-logviewer/blob/main/CHANGELOG.md)
 
 ## Bug reports
 [GitHub Issues](https://github.com/dirkwa/signalk-logviewer/issues)

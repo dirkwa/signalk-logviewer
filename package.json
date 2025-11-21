@@ -1,6 +1,6 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "SignalK Plugin to view and filter server logs",
   "main": "index.js",
   "keywords": [
@@ -25,6 +25,8 @@
     "public/"
   ],
   "signalk": {
+    "appIcon": "images/logviewer.png",
+    "displayName": "Log Viewer",
     "appstore": {
       "displayName": "Log Viewer",
       "categories": ["utilities"],
