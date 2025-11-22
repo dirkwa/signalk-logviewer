@@ -18,7 +18,7 @@ module.exports = function(app) {
         title: 'Maximum lines to retrieve',
         default: 2000,
         minimum: 100,
-        maximum: 10000
+        maximum: 50000
       }
     }
   };
@@ -235,7 +235,7 @@ module.exports = function(app) {
     // Register API endpoint for logs
     app.get('/signalk-logviewer/api/logs', (req, res) => {
       const numLines = parseInt(req.query.lines) || options.maxLines || 2000;
-      const maxLines = Math.min(numLines, 10000);
+      const maxLines = Math.min(numLines, 50000);
       let isCerbo = isCerboSystem();
 
       try {

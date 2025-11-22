@@ -2,6 +2,11 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [0.2.1] - 2025-11-23
+### Changed
+- Increased max lines to 50000 to debug high frequency delta's
+- Updated README with pre-requirements of Cerbo GX
+
 ## [0.2.0] - 2025-11-22
 ### Added
 - Plugin logo displayed in SignalK Webapps list

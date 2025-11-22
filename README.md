@@ -4,10 +4,10 @@ The motivation for this simple Webapp log viewer is that Sever -> Server Log is 
 
 ## Requirements
 - SignalK 2.15 or higher
-- Systemd logging
+- Systemd logging or Victron Cerbo GX (tested v3.66 and v3.70-beta)
 
 ## Features
-- Get up to 10000 last lines from log, 2000 lines by default
+- Get up to 50000 last lines from log, 2000 lines by default
 - Filter log
 - Copy to clipboard
 - Timestamp format options:
