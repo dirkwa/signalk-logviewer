@@ -1,6 +1,6 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.2.1",
+  "version": "0.3.1",
   "description": "SignalK Plugin to view and filter server logs",
   "main": "index.js",
   "keywords": [

@@ -121,14 +121,45 @@
         }
 
         .log-panel {
-            flex: 1;
             background: #1e1e1e;
             border: 1px solid #3e3e42;
             border-radius: 4px;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            min-height: 200px;
+            min-height: 150px;
+        }
+
+        .log-panel:first-of-type {
+            flex: 3; /* 75% */
+        }
+
+        .log-panel:last-of-type {
+            flex: 1; /* 25% */
+        }
+
+        .resize-handle {
+            height: 10px;
+            background: #2d2d30;
+            cursor: ns-resize;
+            position: relative;
+            flex-shrink: 0;
+        }
+
+        .resize-handle:hover {
+            background: #0e639c;
+        }
+
+        .resize-handle::before {
+            content: '';
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 40px;
+            height: 3px;
+            background: #555;
+            border-radius: 2px;
         }
 
         .panel-header {
@@ -267,6 +298,13 @@
 
             <button onclick="loadLogs()">Load Logs</button>
             <button onclick="clearFilter()">Clear Filter</button>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="liveMode" onchange="toggleLiveMode(this.checked)">
+                    Live Mode (tail -f)
+                </label>
+            </div>
         </div>
         
         <div class="info">
@@ -289,6 +327,8 @@
                 </div>
             </div>
 
+            <div class="resize-handle" id="resizeHandle"></div>
+
             <div class="log-panel">
                 <div class="panel-header">
                     <div class="panel-title">
@@ -308,6 +348,9 @@
         let currentFilter = '';
         let currentLogData = null;
         let timestampFormat = 'original';
+        let liveModeInterval = null;
+        let lastLogTimestamp = null;
+        let isLiveMode = false;
 
         document.getElementById('lines').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadLogs();
@@ -315,6 +358,15 @@
 
         document.getElementById('filter').addEventListener('keypress', (e) => {
             if (e.key === 'Enter') loadLogs();
+        });
+
+        // Interactive filtering - filter as you type
+        let filterTimeout;
+        document.getElementById('filter').addEventListener('input', (e) => {
+            clearTimeout(filterTimeout);
+            filterTimeout = setTimeout(() => {
+                applyFilter(e.target.value);
+            }, 300); // Debounce: wait 300ms after user stops typing
         });
 
         // TAI64N timestamp conversion function
@@ -341,22 +393,64 @@
         }
 
         function formatTimestamp(logLine) {
-            if (!logLine.timestamp) {
-                // No timestamp to format
-                return logLine.original;
-            }
-
             const format = document.getElementById('timestampFormat').value;
 
             if (format === 'original') {
                 return logLine.original;
             }
 
-            const date = convertTAI64N(logLine.timestamp);
-            if (!date) {
+            let date = null;
+
+            // Try to parse timestamp
+            if (logLine.timestamp) {
+                // TAI64N format (starts with @4)
+                if (logLine.timestamp.startsWith('@4')) {
+                    date = convertTAI64N(logLine.timestamp);
+                } else {
+                    // Try to parse as standard timestamp
+                    date = new Date(logLine.timestamp);
+                    if (isNaN(date.getTime())) {
+                        date = null;
+                    }
+                }
+            }
+
+            // If no explicit timestamp field, try to parse from the beginning of the line
+            if (!date && logLine.original) {
+                // Try common timestamp formats at the start of the line
+                const line = logLine.original;
+
+                // ISO 8601 format: 2025-11-20T00:04:28.325Z or 2025-11-20T00:04:28
+                const isoMatch = line.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?)/);
+                if (isoMatch) {
+                    date = new Date(isoMatch[1]);
+                }
+
+                // Journalctl format: Nov 20 01:04:28 or 2025-11-20 01:04:28
+                if (!date || isNaN(date.getTime())) {
+                    const journalMatch = line.match(/^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})/);
+                    if (journalMatch) {
+                        // Add current year for parsing
+                        const currentYear = new Date().getFullYear();
+                        date = new Date(`${journalMatch[1]} ${currentYear}`);
+                    }
+                }
+
+                // Date format: 2025-11-20 01:04:28
+                if (!date || isNaN(date.getTime())) {
+                    const dateMatch = line.match(/^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
+                    if (dateMatch) {
+                        date = new Date(dateMatch[1]);
+                    }
+                }
+            }
+
+            // If we couldn't parse a date, return original
+            if (!date || isNaN(date.getTime())) {
                 return logLine.original;
             }
 
+            // Format the timestamp
             let formattedTimestamp;
             if (format === 'iso8601') {
                 formattedTimestamp = date.toISOString();
@@ -364,7 +458,15 @@
                 formattedTimestamp = date.toLocaleString();
             }
 
-            return formattedTimestamp + ' ' + logLine.message;
+            // Replace the timestamp in the original line
+            if (logLine.timestamp && logLine.message) {
+                return formattedTimestamp + ' ' + logLine.message;
+            } else {
+                // Replace timestamp at the beginning of the line
+                const line = logLine.original;
+                const timestampPattern = /^([A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}|\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?|\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/;
+                return line.replace(timestampPattern, formattedTimestamp);
+            }
         }
 
         function updateTimestampDisplay() {
@@ -377,6 +479,21 @@
                     const prevLines = JSON.parse(prevContent.dataset.lines);
                     displayLogs(prevLines, 'logContent2', 'stats2');
                 }
+            }
+        }
+
+        // Client-side filtering without reloading
+        function applyFilter(filterText) {
+            currentFilter = filterText;
+            if (currentLogData && currentLogData.lines) {
+                displayLogs(currentLogData.lines, 'logContent1', 'stats1');
+            }
+
+            // Also filter previous logs if they exist
+            const prevContent = document.getElementById('logContent2');
+            if (prevContent.dataset.lines) {
+                const prevLines = JSON.parse(prevContent.dataset.lines);
+                displayLogs(prevLines, 'logContent2', 'stats2');
             }
         }
 
@@ -498,6 +615,73 @@
             return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         }
 
+        // Resizable split-pane functionality
+        (function initResizer() {
+            const resizeHandle = document.getElementById('resizeHandle');
+            const splitView = document.querySelector('.split-view');
+            const panels = splitView.querySelectorAll('.log-panel');
+            let isResizing = false;
+            let startY = 0;
+            let startFlex1 = 3;
+            let startFlex2 = 1;
+
+            // Load saved sizes from localStorage
+            const savedFlex1 = localStorage.getItem('logPanel1Flex');
+            const savedFlex2 = localStorage.getItem('logPanel2Flex');
+            if (savedFlex1 && savedFlex2) {
+                panels[0].style.flex = savedFlex1;
+                panels[1].style.flex = savedFlex2;
+            }
+
+            resizeHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                startY = e.clientY;
+                const flex1 = parseFloat(getComputedStyle(panels[0]).flexGrow);
+                const flex2 = parseFloat(getComputedStyle(panels[1]).flexGrow);
+                startFlex1 = flex1;
+                startFlex2 = flex2;
+                document.body.style.cursor = 'ns-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const deltaY = e.clientY - startY;
+                const containerHeight = splitView.clientHeight;
+                const deltaFlex = (deltaY / containerHeight) * (startFlex1 + startFlex2);
+
+                let newFlex1 = startFlex1 + deltaFlex;
+                let newFlex2 = startFlex2 - deltaFlex;
+
+                // Prevent panels from becoming too small
+                const minFlex = 0.5;
+                if (newFlex1 < minFlex) {
+                    newFlex1 = minFlex;
+                    newFlex2 = startFlex1 + startFlex2 - minFlex;
+                }
+                if (newFlex2 < minFlex) {
+                    newFlex2 = minFlex;
+                    newFlex1 = startFlex1 + startFlex2 - minFlex;
+                }
+
+                panels[0].style.flex = newFlex1;
+                panels[1].style.flex = newFlex2;
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+
+                    // Save sizes to localStorage
+                    localStorage.setItem('logPanel1Flex', panels[0].style.flex);
+                    localStorage.setItem('logPanel2Flex', panels[1].style.flex);
+                }
+            });
+        })();
+
         async function copyToClipboard(contentId, button) {
             console.log('Copy button clicked for:', contentId);
             const content = document.getElementById(contentId);
@@ -571,8 +755,95 @@
             }, 2000);
         }
 
+        // Live mode functions
+        function toggleLiveMode(enabled) {
+            isLiveMode = enabled;
+            if (enabled) {
+                startLiveMode();
+            } else {
+                stopLiveMode();
+            }
+        }
+
+        function startLiveMode() {
+            // Load initial logs
+            loadLogs().then(() => {
+                // Start polling for new logs every 2 seconds
+                liveModeInterval = setInterval(fetchNewLogs, 2000);
+            });
+        }
+
+        function stopLiveMode() {
+            if (liveModeInterval) {
+                clearInterval(liveModeInterval);
+                liveModeInterval = null;
+            }
+        }
+
+        async function fetchNewLogs() {
+            if (!isLiveMode || !currentLogData) return;
+
+            try {
+                const lines = document.getElementById('lines').value;
+                const response = await fetch(`api/logs?lines=${lines}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    return; // Silently fail in live mode
+                }
+
+                // Compare with current logs to find new ones
+                const newLines = findNewLines(currentLogData.lines, data.lines);
+
+                if (newLines.length > 0) {
+                    // Append new lines to current data
+                    currentLogData.lines = [...currentLogData.lines, ...newLines];
+
+                    // Keep only the requested number of lines (trim from the top)
+                    const maxLines = parseInt(lines);
+                    if (currentLogData.lines.length > maxLines) {
+                        currentLogData.lines = currentLogData.lines.slice(-maxLines);
+                    }
+
+                    // Re-display with new data
+                    displayLogs(currentLogData.lines, 'logContent1', 'stats1');
+
+                    // Auto-scroll to bottom if user hasn't scrolled up
+                    const content = document.getElementById('logContent1');
+                    const isScrolledToBottom = content.scrollHeight - content.scrollTop === content.clientHeight ||
+                                               content.scrollHeight - content.scrollTop - content.clientHeight < 50;
+                    if (isScrolledToBottom) {
+                        content.scrollTop = content.scrollHeight;
+                    }
+                }
+            } catch (error) {
+                console.error('Live mode fetch error:', error);
+            }
+        }
+
+        function findNewLines(oldLines, newLines) {
+            // Simple approach: compare last N lines and find what's new
+            if (!oldLines || oldLines.length === 0) return newLines;
+
+            const lastOldLine = oldLines[oldLines.length - 1].original;
+            const lastIndex = newLines.findIndex(line => line.original === lastOldLine);
+
+            if (lastIndex === -1) {
+                // Couldn't find match, assume all are new
+                return newLines;
+            }
+
+            // Return everything after the last matching line
+            return newLines.slice(lastIndex + 1);
+        }
+
         window.addEventListener('load', () => {
             loadLogs();
+        });
+
+        // Stop live mode when leaving the page
+        window.addEventListener('beforeunload', () => {
+            stopLiveMode();
         });
     </script>
 </body>

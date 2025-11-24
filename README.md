@@ -17,7 +17,9 @@ The motivation for this simple Webapp log viewer is that Sever -> Server Log is 
 - Cerbo GX permission warning: Automatic detection and guidance for Venus OS users
 
 ## Victron Venus OS (Cerbo GX / Octo GX / Venus GX)
-The log directory `/data/log/signalk-server` is owned by root:root, but the plugin runs as signalk:signalk, so it needs permission to access the log files. Also the 25kb limit for the log file are way too less. The following has been successfully tested on VenusOS 3.66.
+- [Issue #1](https://github.com/victronenergy/venus/issues/1562) The log directory `/data/log/signalk-server` is owned by root:root, but the plugin runs as signalk:signalk, so it needs permission to access the log files. 
+- [Issue #2](https://github.com/victronenergy/venus/issues/1563) Also the 25kb limit for the log file are way too small. 
+- The following has been successfully tested on VenusOS 3.66:
 
 ### Quick Fix (temporary - resets on reboot)
 1. SSH into your device as root
