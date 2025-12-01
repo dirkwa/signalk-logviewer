@@ -279,7 +279,7 @@
         <div class="controls">
             <div class="control-group">
                 <label for="lines">Lines:</label>
-                <input type="number" id="lines" value="2000" min="100" max="10000" step="100">
+                <input type="number" id="lines" value="2000" min="10" max="50000" step="100">
             </div>
             
             <div class="control-group">
@@ -395,6 +395,72 @@
         function formatTimestamp(logLine) {
             const format = document.getElementById('timestampFormat').value;
 
+            // Handle simple string format (journalctl short-iso)
+            if (typeof logLine === 'string') {
+                // Format: "2025-11-24T04:34:59+0000 hostname service[pid]: message"
+
+                // If original format requested, return as-is
+                if (format === 'original') {
+                    return logLine;
+                }
+
+                // Try to extract timestamp from beginning of line
+                // ISO format: YYYY-MM-DDTHH:MM:SS+ZZZZ
+                const timestampMatch = logLine.match(/^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4})\s+(.*)$/);
+                if (!timestampMatch) {
+                    return logLine; // No timestamp found, return as-is
+                }
+
+                const [, isoTimestamp, restOfLine] = timestampMatch;
+
+                // Parse the ISO timestamp
+                const date = new Date(isoTimestamp);
+                if (isNaN(date.getTime())) {
+                    return logLine; // Invalid timestamp, return as-is
+                }
+
+                // Format based on user preference
+                let formattedTimestamp;
+                if (format === 'iso8601') {
+                    formattedTimestamp = date.toISOString();
+                } else if (format === 'locale') {
+                    formattedTimestamp = date.toLocaleString();
+                } else {
+                    // Default: keep original
+                    return logLine;
+                }
+
+                return formattedTimestamp + ' ' + restOfLine;
+            }
+
+            // Handle journalctl JSON format
+            if (logLine.MESSAGE) {
+                const message = logLine.MESSAGE;
+
+                // Get timestamp from journalctl's __REALTIME_TIMESTAMP (microseconds since epoch)
+                let date = null;
+                if (logLine.__REALTIME_TIMESTAMP) {
+                    // Convert microseconds to milliseconds
+                    const micros = parseInt(logLine.__REALTIME_TIMESTAMP);
+                    date = new Date(micros / 1000);
+                }
+
+                if (format === 'original' || !date || isNaN(date.getTime())) {
+                    return message;
+                }
+
+                // Format the timestamp
+                let formattedTimestamp;
+                if (format === 'iso8601') {
+                    formattedTimestamp = date.toISOString();
+                } else if (format === 'locale') {
+                    formattedTimestamp = date.toLocaleString();
+                }
+
+                return formattedTimestamp + ' ' + message;
+            }
+
+            // Handle old format (for backwards compatibility)
             if (format === 'original') {
                 return logLine.original;
             }
@@ -514,8 +580,26 @@
             document.getElementById('logContent1').innerHTML = '<div class="loading">Loading logs...</div>';
 
             try {
-                const response = await fetch(`api/logs?lines=${lines}`);
-                const data = await response.json();
+                const response = await fetch(`/plugins/signalk-logviewer/api/logs?lines=${lines}`);
+
+                // Check content type to determine format
+                const contentType = response.headers.get('content-type') || '';
+                let data;
+
+                if (contentType.includes('text/plain')) {
+                    // New format: plain text with delimiter
+                    const text = await response.text();
+                    const logLines = text.split('|||LOGLINE|||');
+                    data = {
+                        lines: logLines,
+                        count: logLines.length,
+                        source: 'journalctl',
+                        format: 'short-iso'
+                    };
+                } else {
+                    // Old format: JSON
+                    data = await response.json();
+                }
 
                 if (data.error) {
                     let errorHtml = `<div class="error-msg"><strong>${data.error}</strong>`;
@@ -785,7 +869,7 @@
 
             try {
                 const lines = document.getElementById('lines').value;
-                const response = await fetch(`api/logs?lines=${lines}`);
+                const response = await fetch(`/plugins/signalk-logviewer/api/logs?lines=${lines}`);
                 const data = await response.json();
 
                 if (data.error) {

@@ -2,6 +2,31 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [1.0.0] - 2025-12-01
+### Changed
+- **Complete rewrite as WebAssembly (WASM) plugin using AssemblyScript**
+  - Near-native performance with compiled WASM binary (~5-10 KB)
+  - Sandboxed execution with no direct host system access
+  - Hot-reload capability - update plugin without server restart
+  - Crash isolation - plugin crashes don't affect server
+- Build process now uses AssemblyScript compiler instead of Node.js
+- Plugin now uses whitelisted shell commands (`journalctl`, `tail`) via FFI
+- Backend completely rewritten in AssemblyScript (assembly/index.ts)
+
+### Removed
+- Cerbo/Venus OS specific support and TAI64N timestamp conversion
+- Node.js backend implementation (index.js)
+- All platform-specific detection and workarounds
+
+### Added
+- WASM sandbox security with capability-based permissions
+- AssemblyScript build configuration (asconfig.json)
+- Optimized and debug build targets
+
+### Requirements
+- SignalK Server 3.0 or higher (with WASM support)
+- Node.js >= 20 (for building only)
+
 ## [0.3.1] - 2025-11-24
 ### Added
 - Timestamp conversion support for journalctl logs

@@ -1,10 +1,10 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.3.1",
-  "description": "SignalK Plugin to view and filter server logs",
-  "main": "index.js",
+  "version": "1.0.0",
+  "description": "SignalK WASM Plugin to view and filter server logs",
   "keywords": [
     "signalk-node-server-plugin",
+    "signalk-wasm-plugin",
     "signalk-webapp",
     "signalk-category-utility"
   ],
@@ -15,23 +15,33 @@
     "url": "git+https://github.com/dirkwa/signalk-logviewer.git"
   },
   "bugs": {
-    "url": "https://github.com/dirkwa/log-viewer/issues"
+    "url": "https://github.com/dirkwa/signalk-logviewer/issues"
   },
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "files": [
-    "index.js",
+    "plugin.wasm",
     "public/"
   ],
+  "wasmManifest": "plugin.wasm",
+  "wasmCapabilities": {
+    "dataRead": true,
+    "dataWrite": false,
+    "storage": "vfs-only",
+    "httpEndpoints": true,
+    "staticFiles": true,
+    "network": false,
+    "serialPorts": false
+  },
   "signalk": {
     "appIcon": "images/logviewer.png",
     "displayName": "Log Viewer",
     "appstore": {
-      "displayName": "Log Viewer",
+      "displayName": "Log Viewer (WASM)",
       "categories": ["utilities"],
       "author": "Dirk Wahrheit",
-      "description": "View and filter SignalK server logs with grep-like functionality"
+      "description": "View and filter SignalK server logs with grep-like functionality. WASM-powered for security and performance."
     },
     "webapp": {
       "name": "Log Viewer",
@@ -40,7 +50,16 @@
     }
   },
   "scripts": {
+    "asbuild:release": "asc assembly/index.ts --target release",
+    "asbuild:debug": "asc assembly/index.ts --target debug",
+    "build": "npm run asbuild:release",
+    "build:optimized": "npm run build && wasm-opt -Oz plugin.wasm -o plugin.wasm",
     "test": "echo \"No tests specified\" && exit 0"
   },
-  "dependencies": {}
+  "devDependencies": {
+    "assemblyscript": "^0.27.0"
+  },
+  "dependencies": {
+    "@signalk/assemblyscript-plugin-sdk": "file:../signalk-server/packages/assemblyscript-plugin-sdk"
+  }
 }

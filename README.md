@@ -1,85 +1,256 @@
-# Signal K Log Viewer
+# Signal K Log Viewer (WASM)
 
-The motivation for this simple Webapp log viewer is that Sever -> Server Log is often cluttered and not searchable. Acts like "tail -n xxxx" and you can "grep" in the output. Victron VenusOS see below.
+A WebAssembly-powered log viewer plugin for SignalK Server. View and filter server logs with grep-like functionality, all running in a secure WASM sandbox.
+
+## Why WASM?
+
+✅ **Security**: Sandboxed execution with no access to host system
+✅ **Hot-reload**: Update plugin without server restart
+✅ **Performance**: Node.js handles log streaming (no WASM memory limits)
+✅ **Small binaries**: ~18 KB WASM binary
+✅ **Crash isolation**: Plugin crashes don't affect server
+
+## Architecture
+
+The plugin uses a **hybrid approach** to overcome WASM memory buffer limitations (~64KB):
+
+- **WASM Plugin**: Registers the HTTP endpoint and provides configuration UI
+- **Node.js Handler**: Intercepts `/api/logs` requests and streams journalctl output directly
+- **Result**: Can handle 2,000-50,000 log lines without freezing or memory issues
+
+This architecture follows best practices: Node.js handles I/O-heavy operations while WASM provides the plugin interface.
 
 ## Requirements
-- SignalK 2.15 or higher
-- Systemd logging or Victron Cerbo GX (tested v3.66 and v3.70-beta)
+
+- SignalK Server 3.0 or higher (with WASM support)
+- Systemd logging (journalctl) or file-based logs
+- Node.js >= 20 (for building)
 
 ## Features
-- Get up to 50000 last lines from log, 2000 lines by default
-- Filter log
-- Copy to clipboard
+
+- Get up to 50,000 last lines from log (default 2,000)
+- Real-time filtering with grep-like search
+- Copy logs to clipboard
+- **Live Mode**: Auto-refresh like `tail -f`
 - Timestamp format options:
-  - **Original**: Shows timestamps as they appear in the log file (default for TAI64N on Cerbo)
-  - **ISO 8601**: Converts TAI64N timestamps to ISO 8601 format (e.g., 2025-01-15T10:30:45.123Z)
-  - **Locale**: Converts timestamps to your browser's local time format
-- Cerbo GX permission warning: Automatic detection and guidance for Venus OS users
+  - **Original**: Shows timestamps as they appear in the log file
+  - **ISO 8601**: Standard ISO format
+  - **Locale**: Converts to your browser's local time format
+- Resizable split-pane layout (75%/25% default)
+- Interactive client-side filtering
 
-## Victron Venus OS (Cerbo GX / Octo GX / Venus GX)
-- [Issue #1](https://github.com/victronenergy/venus/issues/1562) The log directory `/data/log/signalk-server` is owned by root:root, but the plugin runs as signalk:signalk, so it needs permission to access the log files. 
-- [Issue #2](https://github.com/victronenergy/venus/issues/1563) Also the 25kb limit for the log file are way too small. 
-- The following has been successfully tested on VenusOS 3.66:
+## Installation
 
-### Quick Fix (temporary - resets on reboot)
-1. SSH into your device as root
-2. Execute:
+### From NPM (Recommended)
+
 ```bash
-chown -R signalk:signalk /data/log/signalk-server
+npm install signalk-logviewer
 ```
 
-### Persistent Solution (survives reboot)
-1. SSH into your device as root
-2. Create `/data/rc.local` file:
+### From Source
+
 ```bash
-cat > /data/rc.local << 'EOF'
-#!/bin/sh
-# Fix SignalK log permissions
-chown -R signalk:signalk /data/log/signalk-server
-EOF
-```
-3. Make it executable:
-```bash
-chmod +x /data/rc.local
-```
-4. Reboot your device:
-```bash
-reboot
-```
-### Increase LOG size, default is only 25kb
-1. SSH into your device as root
-2. Backup original file 
-```bash
-cp /opt/victronenergy/service/signalk-server/log/run /data/run.backup
-```
-3. Edit `/opt/victronenergy/service/signalk-server/log/run` file:
-```bash
-cat > /opt/victronenergy/service/signalk-server/log/run << 'EOF'
-#!/bin/sh
-exec 2>&1
-exec multilog t s2500000 n4 /var/log/signalk-server
-EOF
-```
-4. Reboot your device:
-```bash
-reboot
+# Clone repository
+git clone https://github.com/dirkwa/signalk-logviewer.git
+cd signalk-logviewer
+
+# Install dependencies
+npm install
+
+# Build WASM plugin
+npm run build
+
+# Install to SignalK
+mkdir -p ~/.signalk/node_modules/signalk-logviewer
+cp plugin.wasm package.json ~/.signalk/node_modules/signalk-logviewer/
+cp -r public ~/.signalk/node_modules/signalk-logviewer/
 ```
 
-**Note:** The plugin automatically detects Venus OS devices (Cerbo GX, Octo GX, Venus GX) and displays an error message with these instructions if logs cannot be accessed.
+## Building from Source
+
+### Prerequisites
+
+```bash
+npm install
+```
+
+### Build Commands
+
+```bash
+# Build release (optimized)
+npm run build
+
+# Build with maximum optimization
+npm run build:optimized
+
+# Build debug version (with source maps)
+npm run asbuild:debug
+```
+
+### Build Output
+
+- **Release**: `plugin.wasm` (~5-10 KB)
+- **Debug**: `build/plugin.debug.wasm` (larger, with symbols)
+
+## Configuration
+
+Enable the plugin in SignalK Admin UI:
+
+1. Navigate to **Server** → **Plugin Config**
+2. Find "Log Viewer (WASM)"
+3. Click **Enable**
+4. Configure settings:
+   - **Max Lines**: Maximum lines to retrieve (100-50,000)
+   - **Log Source**: journalctl or file
+   - **Log File Path**: Path if using file source
+5. Click **Submit**
+
+## Usage
+
+### Access the Web Interface
+
+Navigate to: `http://localhost:3000/plugins/signalk-logviewer/`
+
+### Features
+
+1. **Load Logs**: Click to fetch latest logs
+2. **Filter**: Type to search (filters as you type)
+3. **Live Mode**: Enable for real-time updates (like `tail -f`)
+4. **Timestamp Format**: Choose Original, ISO 8601, or Locale
+5. **Resize Panels**: Drag the handle between panels to adjust layout
+6. **Copy**: Click to copy visible logs to clipboard
+
+## Development
+
+### Project Structure
+
+```
+signalk-logviewer/
+├── assembly/
+│   ├── index.ts          # Main WASM plugin implementation
+│   └── tsconfig.json     # TypeScript config
+├── public/
+│   ├── index.html        # Web interface
+│   └── images/
+│       └── logviewer.png # Plugin icon
+├── asconfig.json         # AssemblyScript build config
+├── package.json          # NPM package metadata
+└── plugin.wasm           # Compiled WASM binary
+```
+
+### Hot Reload
+
+WASM plugins support hot-reload:
+
+1. Make changes to `assembly/index.ts`
+2. Run `npm run build`
+3. In SignalK Admin: **Server** → **Plugin Config** → Click **Reload**
+
+No server restart required!
+
+### API Endpoints
+
+The plugin registers:
+
+- `GET /plugins/signalk-logviewer/api/logs?lines=N` - Fetch logs
+
+Request:
+```
+GET /plugins/signalk-logviewer/api/logs?lines=100
+```
+
+Response:
+```json
+{
+  "lines": [
+    "2025-12-01T19:45:23+0000 pi5 signalk[1234]: signalk-server running at 0.0.0.0 port 3000"
+  ],
+  "count": 1,
+  "source": "journalctl",
+  "format": "short-iso"
+}
+```
+
+## Capabilities
+
+This plugin declares the following WASM capabilities:
+
+| Capability | Enabled | Purpose |
+|------------|---------|---------|
+| `httpEndpoints` | ✅ | Register `/api/logs` endpoint |
+| `staticFiles` | ✅ | Serve web interface from `public/` |
+| `dataRead` | ✅ | Read Signal K data (future use) |
+| `storage` | ✅ | VFS for configuration |
+| `dataWrite` | ❌ | Not needed |
+| `network` | ❌ | Not needed |
+| `serialPorts` | ❌ | Not needed |
+
+## Security
+
+### Node.js Handler
+
+The plugin uses a **Node.js handler** (not WASM) to stream logs, which executes:
+
+- `journalctl -u signalk -n <N> --output=short-iso --no-pager` - Read SignalK service logs
+- `tail -n <N> /var/log/syslog` - Fallback for file-based logs
+
+The WASM plugin itself has no command execution capabilities - all I/O is handled by the trusted Node.js server process.
+
+### Sandboxed Execution
+
+- No access to host filesystem (except VFS)
+- No network access
+- No system command execution (except whitelisted)
+- Isolated crash domain
+
+## Troubleshooting
+
+### Plugin doesn't load
+
+Check `wasmManifest` path in package.json:
+```json
+"wasmManifest": "plugin.wasm"
+```
+
+### No logs shown
+
+1. Check if journalctl works: `journalctl -u signalk -n 10`
+2. Try file-based logs in plugin config
+3. Check server logs for errors
+
+### Build fails
+
+```bash
+# Clean and rebuild
+rm -rf node_modules package-lock.json
+npm install
+npm run build
+```
 
 ## Changelog
-[Changelog at Github master](https://github.com/dirkwa/signalk-logviewer/blob/main/CHANGELOG.md)
 
-## Bug reports
+[View Changelog](CHANGELOG.md)
+
+## Bug Reports
+
 [GitHub Issues](https://github.com/dirkwa/signalk-logviewer/issues)
 
 ## Contributing
+
 Contributions are welcome! Please:
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Test locally
 5. Submit a pull request
 
-#  License MIT
+## License
+
+MIT License - see LICENSE.md
+
+## Credits
+
+- Built with [AssemblyScript](https://www.assemblyscript.org/)
+- Powered by [SignalK Server WASM Runtime](https://signalk.org/)
+- Icon and design by Dirk Wahrheit

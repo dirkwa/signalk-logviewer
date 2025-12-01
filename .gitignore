@@ -2,3 +2,10 @@
 
 # dev build files
 *.tgz
+
+# node modules
+node_modules/
+
+# build files
+dist/
+*.wasm  
