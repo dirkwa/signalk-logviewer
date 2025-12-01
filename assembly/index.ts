@@ -3,7 +3,7 @@ import {
   setStatus,
   setError,
   debug
-} from '../node_modules/@signalk/assemblyscript-plugin-sdk/assembly/index'
+} from 'signalk-assemblyscript-plugin-sdk/assembly'
 
 // FFI declaration for executing shell commands
 @external("env", "sk_exec_command")
