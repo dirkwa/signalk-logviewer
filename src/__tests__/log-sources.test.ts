@@ -109,9 +109,7 @@ describe('getLogsFromJournalctl', () => {
 describe('getLogsFromFile', () => {
   it('reads from the first existing log file', () => {
     vi.mocked(os.homedir).mockReturnValue(FAKE_HOME);
-    vi.mocked(fs.existsSync).mockImplementation(
-      (p) => String(p) === FAKE_LOG
-    );
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p) === FAKE_LOG);
     vi.mocked(fs.readFileSync).mockReturnValue('log line 1\nlog line 2');
 
     const result = getLogsFromFile(100, mockLogger);
@@ -129,9 +127,7 @@ describe('getLogsFromFile', () => {
 
   it('limits output to numLines', () => {
     vi.mocked(os.homedir).mockReturnValue(FAKE_HOME);
-    vi.mocked(fs.existsSync).mockImplementation(
-      (p) => String(p) === FAKE_LOG
-    );
+    vi.mocked(fs.existsSync).mockImplementation((p) => String(p) === FAKE_LOG);
     vi.mocked(fs.readFileSync).mockReturnValue(
       'line1\nline2\nline3\nline4\nline5'
     );

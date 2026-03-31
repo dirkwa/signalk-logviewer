@@ -41,8 +41,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "format": "prettier --write 'src/**/*.ts' && eslint --fix 'src/**/*.ts'",
-    "lint": "eslint 'src/**/*.ts'",
+    "format": "prettier --write \"src/**/*.ts\" && eslint --fix \"src/**/*.ts\"",
+    "lint": "eslint \"src/**/*.ts\"",
     "test": "vitest run",
     "prepublishOnly": "npm run build"
   },

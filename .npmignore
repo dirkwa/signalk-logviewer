@@ -1,0 +1,8 @@
+src/
+.github/
+.claude/
+.gitattributes
+.prettierrc
+eslint.config.mjs
+tsconfig.json
+*.tgz
