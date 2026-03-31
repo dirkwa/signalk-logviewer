@@ -1,8 +1,8 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.3.1",
+  "version": "0.4.0-beta.1",
   "description": "SignalK Plugin to view and filter server logs",
-  "main": "index.js",
+  "main": "dist/index.js",
   "keywords": [
     "signalk-node-server-plugin",
     "signalk-webapp",
@@ -21,7 +21,7 @@
     "node": ">=18.0.0"
   },
   "files": [
-    "index.js",
+    "dist/",
     "public/"
   ],
   "signalk": {
@@ -40,7 +40,22 @@
     }
   },
   "scripts": {
-    "test": "echo \"No tests specified\" && exit 0"
+    "build": "tsc",
+    "format": "prettier --write 'src/**/*.ts' && eslint --fix 'src/**/*.ts'",
+    "lint": "eslint 'src/**/*.ts'",
+    "test": "vitest run",
+    "prepublishOnly": "npm run build"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "devDependencies": {
+    "@signalk/server-api": "^2.4.0",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.0.0",
+    "vitest": "^3.0.0"
+  }
 }

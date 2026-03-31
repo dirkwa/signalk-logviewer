@@ -16,6 +16,16 @@ The motivation for this simple Webapp log viewer is that Sever -> Server Log is 
   - **Locale**: Converts timestamps to your browser's local time format
 - Cerbo GX permission warning: Automatic detection and guidance for Venus OS users
 
+## Development
+
+```bash
+npm install
+npm run build        # compile TypeScript
+npm run lint         # check for lint errors
+npm run format       # run prettier + eslint --fix
+npm test             # run tests
+```
+
 ## Victron Venus OS (Cerbo GX / Octo GX / Venus GX)
 - [Issue #1](https://github.com/victronenergy/venus/issues/1562) The log directory `/data/log/signalk-server` is owned by root:root, but the plugin runs as signalk:signalk, so it needs permission to access the log files. 
 - [Issue #2](https://github.com/victronenergy/venus/issues/1563) Also the 25kb limit for the log file are way too small. 
@@ -79,7 +89,7 @@ Contributions are welcome! Please:
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
-4. Add tests if applicable
+4. Ensure `npm run build && npm run lint && npm test` passes
 5. Submit a pull request
 
 #  License MIT

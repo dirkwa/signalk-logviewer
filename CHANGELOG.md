@@ -2,6 +2,18 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [0.4.0-beta.1] - 2026-04-01
+### Changed
+- Rewritten in strict TypeScript
+- Use `registerWithRouter` for API routes instead of hooking into Express directly
+- Split source into modules: `tai64n`, `log-sources`, `index`
+
+### Added
+- ESLint (strict type-checked) + Prettier via `npm run format`
+- Unit tests (vitest) for TAI64N conversion, log sources, and plugin wiring
+- CI workflow using SignalK reusable plugin-ci.yml
+- `npm run build`, `npm run lint`, `npm run format`, `npm test` scripts
+
 ## [0.3.1] - 2025-11-24
 ### Added
 - Timestamp conversion support for journalctl logs
