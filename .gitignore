@@ -1,6 +1,7 @@
 .claude
 node_modules/
 dist/
+package-lock.json
 
 # dev build files
 *.tgz

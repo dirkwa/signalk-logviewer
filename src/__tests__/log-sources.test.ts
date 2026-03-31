@@ -1,3 +1,4 @@
+import path from 'path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Logger } from '../log-sources';
 
@@ -8,6 +9,9 @@ vi.mock('child_process');
 const fs = await import('fs');
 const os = await import('os');
 const { execSync } = await import('child_process');
+
+const FAKE_HOME = path.join('/tmp', 'fakehome');
+const FAKE_LOG = path.join(FAKE_HOME, '.signalk', 'logs', 'signalk-server.log');
 const {
   getLogsFromVictronCerbo,
   getLogsFromJournalctl,
@@ -104,31 +108,29 @@ describe('getLogsFromJournalctl', () => {
 
 describe('getLogsFromFile', () => {
   it('reads from the first existing log file', () => {
-    vi.mocked(os.homedir).mockReturnValue('/tmp/fakehome');
+    vi.mocked(os.homedir).mockReturnValue(FAKE_HOME);
     vi.mocked(fs.existsSync).mockImplementation(
-      (p) => String(p) === '/tmp/fakehome/.signalk/logs/signalk-server.log'
+      (p) => String(p) === FAKE_LOG
     );
     vi.mocked(fs.readFileSync).mockReturnValue('log line 1\nlog line 2');
 
     const result = getLogsFromFile(100, mockLogger);
     expect(result).not.toBeNull();
-    expect(result!.path).toBe(
-      '/tmp/fakehome/.signalk/logs/signalk-server.log'
-    );
+    expect(result!.path).toBe(FAKE_LOG);
     expect(result!.lines).toHaveLength(2);
   });
 
   it('returns null when no log files exist', () => {
-    vi.mocked(os.homedir).mockReturnValue('/tmp/fakehome');
+    vi.mocked(os.homedir).mockReturnValue(FAKE_HOME);
     vi.mocked(fs.existsSync).mockReturnValue(false);
 
     expect(getLogsFromFile(100, mockLogger)).toBeNull();
   });
 
   it('limits output to numLines', () => {
-    vi.mocked(os.homedir).mockReturnValue('/tmp/fakehome');
+    vi.mocked(os.homedir).mockReturnValue(FAKE_HOME);
     vi.mocked(fs.existsSync).mockImplementation(
-      (p) => String(p) === '/tmp/fakehome/.signalk/logs/signalk-server.log'
+      (p) => String(p) === FAKE_LOG
     );
     vi.mocked(fs.readFileSync).mockReturnValue(
       'line1\nline2\nline3\nline4\nline5'
