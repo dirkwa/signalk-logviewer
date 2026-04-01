@@ -2,36 +2,22 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
-## [0.4.0-beta.4] - 2026-04-01
-### Fixed
-- Copy button now respects text selection instead of always copying all log lines
-
-## [0.4.0-beta.3] - 2026-04-01
-### Fixed
-- Timestamp format dropdown (Original/ISO/Locale) now works for journalctl logs
-  - Switched from `--output=cat` to `--output=short-iso` to preserve timestamps
-  - Parse timestamp and message from journalctl output for proper conversion
-
-## [0.4.0-beta.2] - 2026-04-01
-### Added
-- CI workflow using SignalK reusable plugin-ci.yml (cross-platform: Linux, macOS, Windows, armv7)
-- `.gitattributes` enforces LF line endings, `.npmignore` for clean packages
-
-### Fixed
-- Frontend API URL now uses absolute path matching `registerWithRouter` mount point
-- Cross-platform test compatibility (Windows path separators, glob quoting)
-- ESLint glob quoting for Windows compatibility
-
-## [0.4.0-beta.1] - 2026-04-01
+## [0.4.0] - 2026-04-01
 ### Changed
 - Rewritten in strict TypeScript
 - Use `registerWithRouter` for API routes instead of hooking into Express directly
 - Split source into modules: `tai64n`, `log-sources`, `index`
+- journalctl now uses `--output=short-iso` to preserve timestamps for format conversion
 
 ### Added
 - ESLint (strict type-checked) + Prettier via `npm run format`
 - Unit tests (vitest) for TAI64N conversion, log sources, and plugin wiring
+- CI workflow using SignalK reusable plugin-ci.yml (cross-platform: Linux, macOS, Windows, armv7)
 - `npm run build`, `npm run lint`, `npm run format`, `npm test` scripts
+
+### Fixed
+- Timestamp format dropdown (Original/ISO/Locale) now works for journalctl logs
+- Copy button respects text selection instead of always copying all log lines
 
 ## [0.3.1] - 2025-11-24
 ### Added
