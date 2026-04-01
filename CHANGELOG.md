@@ -2,6 +2,10 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [0.4.0-beta.4] - 2026-04-01
+### Fixed
+- Copy button now respects text selection instead of always copying all log lines
+
 ## [0.4.0-beta.3] - 2026-04-01
 ### Fixed
 - Timestamp format dropdown (Original/ISO/Locale) now works for journalctl logs
