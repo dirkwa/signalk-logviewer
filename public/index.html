@@ -683,19 +683,22 @@
         })();
 
         async function copyToClipboard(contentId, button) {
-            console.log('Copy button clicked for:', contentId);
+            const selection = window.getSelection();
             const content = document.getElementById(contentId);
-            
+
             let text = '';
-            const logLines = content.querySelectorAll('.log-line');
-            console.log('Found', logLines.length, 'log lines');
-            
-            if (logLines.length > 0) {
-                logLines.forEach(line => {
-                    text += line.textContent + '\n';
-                });
+
+            if (selection && selection.toString().trim() && content.contains(selection.anchorNode)) {
+                text = selection.toString();
             } else {
-                text = content.textContent;
+                const logLines = content.querySelectorAll('.log-line');
+                if (logLines.length > 0) {
+                    logLines.forEach(line => {
+                        text += line.textContent + '\n';
+                    });
+                } else {
+                    text = content.textContent;
+                }
             }
             
             console.log('Text length:', text.length);
