@@ -2,6 +2,12 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [0.4.0-beta.3] - 2026-04-01
+### Fixed
+- Timestamp format dropdown (Original/ISO/Locale) now works for journalctl logs
+  - Switched from `--output=cat` to `--output=short-iso` to preserve timestamps
+  - Parse timestamp and message from journalctl output for proper conversion
+
 ## [0.4.0-beta.2] - 2026-04-01
 ### Added
 - CI workflow using SignalK reusable plugin-ci.yml (cross-platform: Linux, macOS, Windows, armv7)

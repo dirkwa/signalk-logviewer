@@ -84,7 +84,7 @@ export function getLogsFromJournalctl(
 ): LogLine[] | null {
   try {
     const output = execSync(
-      `journalctl -u signalk -n ${String(numLines)} --no-pager --output=cat`,
+      `journalctl -u signalk -n ${String(numLines)} --no-pager --output=short-iso`,
       {
         encoding: 'utf8',
         maxBuffer: 10 * 1024 * 1024
@@ -93,11 +93,19 @@ export function getLogsFromJournalctl(
     return output
       .trim()
       .split('\n')
-      .map((line) => ({
-        original: line,
-        timestamp: null,
-        message: line
-      }));
+      .map((line) => {
+        const match = line.match(
+          /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{4})\s+\S+\s+\S+\s+(.*)/
+        );
+        if (match) {
+          return {
+            original: line,
+            timestamp: match[1],
+            message: match[2]
+          };
+        }
+        return { original: line, timestamp: null, message: line };
+      });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     logger.debug('journalctl not available:', message);

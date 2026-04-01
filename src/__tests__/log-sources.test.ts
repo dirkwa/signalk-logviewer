@@ -86,14 +86,40 @@ describe('isCerboSystem', () => {
 });
 
 describe('getLogsFromJournalctl', () => {
-  it('returns parsed log lines on success', () => {
-    vi.mocked(execSync).mockReturnValue('line one\nline two\nline three\n');
+  it('parses short-iso journalctl output with timestamps', () => {
+    vi.mocked(execSync).mockReturnValue(
+      '2026-04-01T12:00:01+0200 myhost signalk[123]: first message\n' +
+        '2026-04-01T12:00:02+0200 myhost signalk[123]: second message\n'
+    );
 
     const result = getLogsFromJournalctl(100, mockLogger);
     expect(result).toEqual([
-      { original: 'line one', timestamp: null, message: 'line one' },
-      { original: 'line two', timestamp: null, message: 'line two' },
-      { original: 'line three', timestamp: null, message: 'line three' }
+      {
+        original:
+          '2026-04-01T12:00:01+0200 myhost signalk[123]: first message',
+        timestamp: '2026-04-01T12:00:01+0200',
+        message: 'first message'
+      },
+      {
+        original:
+          '2026-04-01T12:00:02+0200 myhost signalk[123]: second message',
+        timestamp: '2026-04-01T12:00:02+0200',
+        message: 'second message'
+      }
+    ]);
+  });
+
+  it('handles lines without matching timestamp format', () => {
+    vi.mocked(execSync).mockReturnValue('-- Logs begin --\nplain line\n');
+
+    const result = getLogsFromJournalctl(100, mockLogger);
+    expect(result).toEqual([
+      {
+        original: '-- Logs begin --',
+        timestamp: null,
+        message: '-- Logs begin --'
+      },
+      { original: 'plain line', timestamp: null, message: 'plain line' }
     ]);
   });
 
