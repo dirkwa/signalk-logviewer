@@ -1,6 +1,6 @@
 {
   "name": "signalk-logviewer",
-  "version": "0.4.0",
+  "version": "1.0.0",
   "description": "SignalK Plugin to view and filter server logs",
   "main": "dist/index.js",
   "keywords": [
@@ -9,7 +9,7 @@
     "signalk-category-utility"
   ],
   "author": "Dirk Wahrheit",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE.md",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dirkwa/signalk-logviewer.git"
@@ -22,7 +22,10 @@
   },
   "files": [
     "dist/",
-    "public/"
+    "public/",
+    "LICENSE.md",
+    "LICENSE-MIT-through-v0.x.txt",
+    "CONTRIBUTING.md"
   ],
   "signalk": {
     "appIcon": "images/logviewer.png",

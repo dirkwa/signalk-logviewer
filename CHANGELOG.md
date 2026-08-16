@@ -2,6 +2,16 @@
 
 All notable changes to SignalK Log Viewer will be documented in this file.
 
+## [1.0.0] - 2026-08-17
+### Changed
+- **BREAKING (licensing):** signalk-logviewer is no longer MIT licensed. Starting
+  with this release it is source-available under the terms in
+  [LICENSE.md](LICENSE.md). Running it on your own boat or fleet — private or
+  commercial — and modifying it for your own use remain free; redistributing it or
+  publishing a modified version to npm or anywhere else is no longer permitted.
+  Verbatim copies of official releases may still be mirrored and cached.
+  Versions 0.4.0 and earlier remain under the MIT license.
+
 ## [0.4.0] - 2026-04-01
 ### Changed
 - Rewritten in strict TypeScript
