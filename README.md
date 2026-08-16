@@ -84,12 +84,19 @@ reboot
 [GitHub Issues](https://github.com/dirkwa/signalk-logviewer/issues)
 
 ## Contributing
-Contributions are welcome! Please:
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Ensure `npm run build && npm run lint && npm test` passes
-5. Submit a pull request
+## License
 
-#  License MIT
+signalk-logviewer 1.0.0 and later is **source available, not open source**.
+See [LICENSE.md](LICENSE.md).
+
+**You may**, free of charge: run it on your own boat or fleet, private or
+commercial; use it for internal company operations; modify it for your own use;
+use it in education and research; and provide professional services around it.
+
+**You may not**: redistribute it, or publish a modified version of it to npm or
+anywhere else. Verbatim copies of official releases may be mirrored and cached.
+
+Versions 0.4.0 and earlier remain available under the MIT license, see
+[LICENSE-MIT-through-v0.x.txt](LICENSE-MIT-through-v0.x.txt).
