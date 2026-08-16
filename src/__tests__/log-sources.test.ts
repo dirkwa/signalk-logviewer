@@ -95,8 +95,7 @@ describe('getLogsFromJournalctl', () => {
     const result = getLogsFromJournalctl(100, mockLogger);
     expect(result).toEqual([
       {
-        original:
-          '2026-04-01T12:00:01+0200 myhost signalk[123]: first message',
+        original: '2026-04-01T12:00:01+0200 myhost signalk[123]: first message',
         timestamp: '2026-04-01T12:00:01+0200',
         message: 'first message'
       },

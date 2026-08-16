@@ -143,7 +143,7 @@ module.exports = (serverApi: ServerAPI): Plugin => {
     config: object,
     restart: (newConfiguration: object) => void
   ): void => {
-    pluginConfig = config as PluginConfig;
+    pluginConfig = config;
     app.debug('Plugin started');
     app.setPluginStatus('Running - Access at /plugins/signalk-logviewer/');
     originalStart(config, restart);
